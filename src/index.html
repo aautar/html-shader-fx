@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+    <head>
+
+        <script src="../node_modules/canvas-image-transformer/dist/canvas-image-transformer.min.js" type="application/javascript"></script>
+        <script src="../node_modules/foreign-html-renderer/dist/foreign-html-renderer.min.js" type="application/javascript"></script>
+
+        <style type="text/css">
+            .wrap {
+                background:url(//dev.html-shader-fx.com/src/Spot_the_cow.png) 0 0 no-repeat; 
+                width:300px; 
+                height:300px;
+            }
+
+            .title {
+                color: #000; 
+                padding:10px;
+            }
+        </style>
+
+    </head>
+
+    <body>
+
+        <div id="snapshotContainer">
+            <img src="" />            
+        </div>
+
+
+        <script type="text/javascript">
+
+            const applyGLSLShader = async (img) => {
+                const imgOnCanvas = CanvasImageTransformer.imageToCanvas(img, 300, 300, true);
+
+                const fragmentShaderSrc = `
+                    precision mediump float;
+
+                    uniform sampler2D uSampler;
+                    varying vec2 vTextureCoord;
+                    uniform vec2 uShiftLeft;
+                    uniform vec2 uShiftRight;
+                    
+                    void main(void) {
+                        vec4 src = texture2D( uSampler, ( vTextureCoord ) );
+                    
+                        vec4 shiftedSampleLeft = texture2D( uSampler, ( vTextureCoord + uShiftLeft) );
+                        vec4 shiftedSampleRight = texture2D( uSampler, ( vTextureCoord + uShiftRight ) );
+                    
+                        gl_FragColor = src * vec4(1, shiftedSampleLeft.g, 1, 1) * vec4(shiftedSampleRight.r, 1, 1, 1);
+                    }
+                `;
+
+                const glCanvas = CanvasImageTransformer.applyGLSLFragmentShader(
+                    imgOnCanvas,
+                    fragmentShaderSrc,
+                    [
+                        {
+                            name: "uPeriod",
+                            type: "1f",
+                            x: 1.0
+                        },
+                        {
+                            name: "uShiftLeft",
+                            type: "2f",
+                            x: -0.0105525,
+                            y: 0
+                        },
+                        {
+                            name: "uShiftRight",
+                            type: "2f",
+                            x: 0.0105525,
+                            y: 0
+                        },
+                    ]
+                );
+
+                const docImg = document.querySelector('#snapshotContainer img');
+                docImg.src = glCanvas.toDataURL();            
+            };
+
+            (async () => {
+                const renderer = new ForeignHtmlRenderer.ImageRenderer(document.styleSheets);
+
+                const htmlImage = await renderer.renderToImage(
+                    `
+                    <div class="wrap">
+                        <h1 class="title">spherical cow</h1>
+                    </div>
+                    `
+                    , 
+                    300, 
+                    300
+                );
+
+                applyGLSLShader(htmlImage);
+            })();
+
+        </script>
+
+    </body>
+
+</html>
