@@ -6,6 +6,11 @@
         <script src="../node_modules/foreign-html-renderer/dist/foreign-html-renderer.min.js" type="application/javascript"></script>
 
         <style type="text/css">
+            * {
+                margin: 0;
+                padding: 0;
+            }
+
             .wrap {
                 background:url(//dev.html-shader-fx.com/src/Spot_the_cow.png) 0 0 no-repeat; 
                 width:300px; 
@@ -16,20 +21,32 @@
                 color: #000; 
                 padding:10px;
             }
+
+            #overlayFxWrapper {
+                position: absolute;
+                top: 0;
+                left: 0;
+            }
         </style>
 
     </head>
 
     <body>
 
-        <div id="snapshotContainer">
+        <div class="wrap">
+            <h1 class="title">spherical cow</h1>
+        </div>
+
+        <div id="overlayFxWrapper">
             <img src="" />            
         </div>
 
 
         <script type="text/javascript">
-
-            const applyGLSLShader = async (img) => {
+            let shift = 0.045055;
+            let alpha = 1.0;
+            
+            const applyChromaticAbberationShader = async (img, abbrShift, abbrAlpha) => {
                 const imgOnCanvas = CanvasImageTransformer.imageToCanvas(img, 300, 300, true);
 
                 const fragmentShaderSrc = `
@@ -39,14 +56,15 @@
                     varying vec2 vTextureCoord;
                     uniform vec2 uShiftLeft;
                     uniform vec2 uShiftRight;
+                    uniform float uShiftAlpha;
                     
                     void main(void) {
                         vec4 src = texture2D( uSampler, ( vTextureCoord ) );
-                    
-                        vec4 shiftedSampleLeft = texture2D( uSampler, ( vTextureCoord + uShiftLeft) );
-                        vec4 shiftedSampleRight = texture2D( uSampler, ( vTextureCoord + uShiftRight ) );
-                    
-                        gl_FragColor = src * vec4(1, shiftedSampleLeft.g, 1, 1) * vec4(shiftedSampleRight.r, 1, 1, 1);
+
+                        vec4 shiftedSampleLeft = texture2D( uSampler, (vTextureCoord + uShiftLeft) );
+                        vec4 shiftedSampleRight = texture2D( uSampler, (vTextureCoord + uShiftRight) );
+
+                        gl_FragColor = src * (vec4(uShiftAlpha,uShiftAlpha,uShiftAlpha,uShiftAlpha) * (vec4(1, shiftedSampleLeft.g, 1, 1) * vec4(shiftedSampleRight.r, 1, 1, 1)));
                     }
                 `;
 
@@ -62,37 +80,61 @@
                         {
                             name: "uShiftLeft",
                             type: "2f",
-                            x: -0.0105525,
-                            y: 0
+                            x: -1.0 * abbrShift,
+                            y: 0.0
                         },
                         {
                             name: "uShiftRight",
                             type: "2f",
-                            x: 0.0105525,
-                            y: 0
+                            x: abbrShift,
+                            y: 0.0
                         },
+                        {
+                            name: "uShiftAlpha",
+                            type: "1f",
+                            x: abbrAlpha,
+                        },                        
                     ]
                 );
 
-                const docImg = document.querySelector('#snapshotContainer img');
+                const docImg = document.querySelector('#overlayFxWrapper img');
                 docImg.src = glCanvas.toDataURL();            
+            };
+
+            const renderIntro = (image) => {
+                applyChromaticAbberationShader(image, shift, alpha);
+                shift-= 0.0025;
+                alpha -= 0.075;
+
+                if(alpha < 0.0) {
+                    alpha = 0.0;
+                }
+
+                if(shift > 0.0) {
+                    requestAnimationFrame(() => {
+                        renderIntro(image)
+                    });
+                } else {
+                    const docImg = document.querySelector('#overlayFxWrapper img');
+                    docImg.style.display = 'none';
+                }
             };
 
             (async () => {
                 const renderer = new ForeignHtmlRenderer.ImageRenderer(document.styleSheets);
 
                 const htmlImage = await renderer.renderToImage(
-                    `
-                    <div class="wrap">
-                        <h1 class="title">spherical cow</h1>
-                    </div>
-                    `
-                    , 
+                    document.querySelector('.wrap').outerHTML, 
                     300, 
                     300
                 );
 
-                applyGLSLShader(htmlImage);
+                applyChromaticAbberationShader(htmlImage, shift, alpha);
+
+                setTimeout(() => {
+                    renderIntro(htmlImage);
+                }, 1000);
+                
             })();
 
         </script>
