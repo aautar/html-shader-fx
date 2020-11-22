@@ -10,6 +10,6 @@
   "license": "ISC",
   "dependencies": {
     "canvas-image-transformer": "^2.3.2",
-    "foreign-html-renderer": "^1.0.0"
+    "foreign-html-renderer": "^1.0.1"
   }
 }
